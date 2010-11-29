@@ -16,6 +16,28 @@
 module Facter::Memory
     require 'thread'
 
+    # Stores all units from meminfo as fact_SUFFIX
+    def self.add_memfacts(fact, meminfo, kernel = nil)
+        best = meminfo[:best]
+        Facter.add(fact) do
+            confine :kernel => kernel if kernel
+            setcode do
+                best
+            end
+        end
+
+        # Load in values converted to other units
+        meminfo.each do |memunit,memsize|
+            next if memunit == :best
+            Facter.add("%s_%s" % [fact, memunit]) do
+                confine :kernel => kernel if kernel
+                setcode do
+                    memsize
+                end
+            end
+        end
+    end
+
     def self.meminfo_number(tag)
         memsize = ""
         Thread::exclusive do
@@ -35,7 +57,17 @@ module Facter::Memory
         memsize
     end
 
+    # Converts an input number into a range of standard units and the most
+    # appropriate unit (:best).  Returns a hash similar to:
+    #   { :best => "123 MB", "kB" => 125952, "MB" => 123 }
     def self.scale_number(size, multiplier)
+        units = scale_number_standards(size, multiplier)
+        units[:best] = scale_number_best(size, multiplier)
+        units
+    end
+
+    # Converts an input number into the most appropriate unit
+    def self.scale_number_best(size, multiplier)
         suffixes = ['', 'kB', 'MB', 'GB', 'TB']
 
         s = suffixes.shift
@@ -49,6 +81,31 @@ module Facter::Memory
         end
 
         return "%.2f %s" % [size, s]
+    end
+
+    # Converts one input number into a range of standard units
+    def self.scale_number_standards(size, multiplier, units = ['B', 'MB'])
+        suffixes = ['B', 'kB', 'MB', 'GB', 'TB']
+        standards = {}
+
+        units.each do |u|
+            idx = suffixes.index(multiplier)  # our input
+            uidx = suffixes.index(u)          # our target
+            convsize = size
+
+            while uidx < idx
+                convsize *= 1024.0
+                idx -= 1
+            end
+
+            while uidx > idx
+                convsize /= 1024.0
+                idx += 1
+            end
+
+            standards[u] = "%.2f" % convsize
+        end
+        standards
     end
 end
 

@@ -7,16 +7,14 @@
 #
 require 'facter/util/memory'
 
-{   :MemorySize => "MemTotal",
-    :MemoryFree => "MemFree",
-    :SwapSize   => "SwapTotal",
-    :SwapFree   => "SwapFree"
-}.each do |fact, name|
-    Facter.add(fact) do
-        confine :kernel => :linux
-        setcode do
-            Facter::Memory.meminfo_number(name)
-        end
+if Facter.value(:kernel) == "Linux"
+    {   :MemorySize => "MemTotal",
+        :MemoryFree => "MemFree",
+        :SwapSize   => "SwapTotal",
+        :SwapFree   => "SwapFree"
+    }.each do |fact, name|
+        meminfo = Facter::Memory.meminfo_number(name)
+        Facter::Memory::add_memfacts(fact, meminfo, :linux)
     end
 end
 
@@ -30,19 +28,11 @@ if Facter.value(:kernel) == "AIX" and Facter.value(:id) == "root"
       end 
     end 
  
-    Facter.add("SwapSize") do
-        confine :kernel => :aix
-        setcode do
-            Facter::Memory.scale_number(swaptotal.to_f,"MB")
-        end
-    end
+    meminfo = Facter::Memory.scale_number(swaptotal.to_f,"MB")
+    Facter::Memory::add_memfacts("SwapSize", meminfo, :aix)
 
-    Facter.add("SwapFree") do
-        confine :kernel => :aix
-        setcode do
-            Facter::Memory.scale_number(swapfree.to_f,"MB")
-        end
-    end
+    meminfo = Facter::Memory.scale_number(swapfree.to_f,"MB")
+    Facter::Memory::add_memfacts("SwapFree", meminfo, :aix)
 end
 
 if Facter.value(:kernel) == "OpenBSD"
@@ -55,33 +45,17 @@ if Facter.value(:kernel) == "OpenBSD"
         end
     end
 
-    Facter.add("SwapSize") do
-        confine :kernel => :openbsd
-        setcode do
-            Facter::Memory.scale_number(swaptotal.to_f,"kB")
-        end
-    end
+    meminfo = Facter::Memory.scale_number(swaptotal.to_f,"kB")
+    Facter::Memory::add_memfacts("SwapSize", meminfo, :openbsd)
 
-    Facter.add("SwapFree") do
-        confine :kernel => :openbsd
-        setcode do
-            Facter::Memory.scale_number(swapfree.to_f,"kB")
-        end
-    end
+    meminfo = Facter::Memory.scale_number(swapfree.to_f,"kB")
+    Facter::Memory::add_memfacts("SwapFree", meminfo, :openbsd)
 
-    Facter.add("MemoryFree") do
-        confine :kernel => :openbsd
-        memfree = Facter::Util::Resolution.exec("vmstat | tail -n 1 | awk '{ print $5 }'")
-        setcode do
-            Facter::Memory.scale_number(memfree.to_f,"kB")
-        end
-    end
+    memfree = Facter::Util::Resolution.exec("vmstat | tail -n 1 | awk '{ print $5 }'")
+    meminfo = Facter::Memory.scale_number(memfree.to_f,"kB")
+    Facter::Memory::add_memfacts("MemoryFree", meminfo, :openbsd)
 
-    Facter.add("MemoryTotal") do
-        confine :kernel => :openbsd
-        memtotal = Facter::Util::Resolution.exec("sysctl hw.physmem | cut -d'=' -f2")
-        setcode do
-            Facter::Memory.scale_number(memtotal.to_f,"")
-        end
-    end
+    memtotal = Facter::Util::Resolution.exec("sysctl hw.physmem | cut -d'=' -f2")
+    meminfo = Facter::Memory.scale_number(memfree.to_f,"")
+    Facter::Memory::add_memfacts("MemoryTotal", meminfo, :openbsd)
 end
