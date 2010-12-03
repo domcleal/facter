@@ -69,13 +69,7 @@ if Facter.value(:kernel) == "OpenBSD"
         end
     end
 
-    Facter.add("MemoryFree") do
-        confine :kernel => :openbsd
-        memfree = Facter::Util::Resolution.exec("vmstat | tail -n 1 | awk '{ print $5 }'")
-        setcode do
-            Facter::Memory.scale_number(memfree.to_f,"kB")
-        end
-    end
+    Facter::Memory.vmstat_find_free_memory()
 
     Facter.add("MemoryTotal") do
         confine :kernel => :openbsd
